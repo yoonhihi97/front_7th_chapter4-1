@@ -282,7 +282,67 @@ params = { id: "123" }
 
 ## Step 3: Mock API
 
-(구현 후 추가 예정)
+### 왜 Mock API를 분리해야 하나요?
+
+**현재 상황:**
+
+`handlers.js`는 MSW(Mock Service Worker) 전용입니다:
+
+```javascript
+// handlers.js
+http.get("/api/products", async ({ request }) => {
+  // ... 데이터 처리 로직
+  return HttpResponse.json(response);  // HTTP 응답 형태로 반환
+});
+```
+
+MSW는 **브라우저의 `fetch` 요청을 가로채서** 응답합니다:
+```
+브라우저: fetch('/api/products')
+    ↓
+MSW: "어, /api/products 요청이네? 내가 가로챌게!"
+    ↓
+handlers.js 실행 → HttpResponse.json() 반환
+```
+
+**SSR에서의 문제:**
+
+서버(Node.js)에서는 MSW가 동작하지 않습니다!
+
+```
+서버: "상품 데이터가 필요한데..."
+    ↓
+fetch('/api/products')?  ← 실제 서버가 없으니 실패!
+MSW?  ← 브라우저에서만 동작!
+```
+
+**해결책: 함수로 분리**
+
+데이터 처리 로직만 순수 함수로 빼면, 어디서든 호출 가능:
+
+```javascript
+// mockApi.js (새로 만들 파일)
+export function mockGetProducts({ page, limit, ... }) {
+  // 데이터 처리 로직
+  return { products, pagination, filters };  // 그냥 객체 반환
+}
+```
+
+이제:
+- **브라우저 (CSR)**: MSW handlers에서 `mockGetProducts()` 호출
+- **서버 (SSR)**: `main-server.js`에서 `mockGetProducts()` 직접 호출
+
+```
+[CSR]
+브라우저 → fetch → MSW → mockGetProducts() → 응답
+
+[SSR]
+서버 → mockGetProducts() 직접 호출 → 데이터 획득 → HTML 생성
+```
+
+### 한 줄 요약
+
+> **SSR에서 서버가 직접 데이터를 가져오려면, HTTP 없이 호출할 수 있는 함수가 필요!**
 
 ---
 
