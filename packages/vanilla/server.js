@@ -37,7 +37,11 @@ async function createServer() {
   }
 
   app.use("*all", async (req, res) => {
-    const url = req.originalUrl.replace(base, "");
+    // base를 제거하고, 항상 "/"로 시작하도록 보장
+    let url = req.originalUrl.replace(base, "");
+    if (!url.startsWith("/")) {
+      url = "/" + url;
+    }
 
     try {
       if (!prod) {
