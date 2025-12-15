@@ -3,6 +3,15 @@ import { initialProductState, productStore, PRODUCT_ACTIONS } from "../stores";
 import { router } from "../router";
 
 export const loadProductsAndCategories = async () => {
+  // TODO: SSR Hydration 대응 - 이미 데이터가 있으면 API 호출 스킵
+  // 참고: https://junilhwang.github.io/TIL/Javascript/Design/Vanilla-JS-Server-Side-Rendering/
+  // 패턴: 초기 로드 시 서버 데이터 사용, API는 사용자 상호작용 시에만 호출
+  //
+  // 1. productStore.getState()로 현재 상태 가져오기
+  // 2. products 배열에 데이터가 있으면 early return
+  const { products } = productStore.getState();
+  if (products.length > 0) return;
+
   router.query = { current: undefined }; // 항상 첫 페이지로 초기화
   productStore.dispatch({
     type: PRODUCT_ACTIONS.SETUP,
@@ -119,6 +128,14 @@ export const setLimit = (limit) => {
  * 상품 상세 페이지용 상품 조회 및 관련 상품 로드
  */
 export const loadProductDetailForPage = async (productId) => {
+  // TODO: SSR Hydration 대응 - 이미 해당 상품 데이터가 있으면 API 호출 스킵
+  // 현재 로직: productId가 같으면 관련 상품만 로드
+  // SSR 대응: 이미 currentProduct가 있고 productId가 같으면 완전히 스킵
+  //
+  // 힌트: 기존 체크 로직을 활용하되, relatedProducts도 이미 있으면 스킵하도록 수정
+  const { currentProduct, relatedProducts } = productStore.getState();
+  if (currentProduct?.productId === productId && relatedProducts.length > 0) return;
+
   try {
     const currentProduct = productStore.getState().currentProduct;
     if (productId === currentProduct?.productId) {
